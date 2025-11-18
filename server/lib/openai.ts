@@ -1,7 +1,10 @@
 import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Only initialize OpenAI if API key is available
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 interface VideoGenerationParams {
   prompt: string;
@@ -42,6 +45,10 @@ export async function generateVideoFromText(params: VideoGenerationParams) {
       "visualEffects": ["effect1", "effect2", ...],
       "estimatedDuration": number
     }`;
+
+    if (!openai) {
+      throw new Error('OpenAI client not initialized');
+    }
 
     const response = await openai.chat.completions.create({
       model: "gpt-5",
@@ -108,6 +115,10 @@ export async function generateVideoFromImage(imageUrl: string, prompt: string, p
       "estimatedDuration": number
     }`;
 
+    if (!openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-5",
       messages: [
@@ -143,6 +154,10 @@ export async function generateVideoFromImage(imageUrl: string, prompt: string, p
 
 export async function enhancePrompt(originalPrompt: string, style?: string): Promise<string> {
   try {
+    if (!openai || !process.env.OPENAI_API_KEY) {
+      return originalPrompt; // Return original if no API key
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-5",
       messages: [
@@ -169,6 +184,10 @@ export async function generateThumbnail(prompt: string): Promise<string | null> 
     // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY) {
       return null; // Return null to use fallback
+    }
+
+    if (!openai) {
+      return null;
     }
 
     // Generate a thumbnail image using DALL-E 3
