@@ -216,10 +216,23 @@ export class MemStorage implements IStorage {
     const project = this.videoProjects.get(id);
     if (!project) return undefined;
 
+    // Create immutable copy with safe merge, ensuring required fields remain populated
     const updated: VideoProject = {
-      ...project,
-      ...updates,
-      id, // Ensure ID doesn't change
+      id: project.id, // Ensure ID doesn't change
+      title: updates.title !== undefined ? updates.title : project.title,
+      description: updates.description !== undefined ? updates.description : project.description,
+      type: updates.type !== undefined ? updates.type : project.type,
+      status: updates.status !== undefined ? updates.status : project.status,
+      prompt: updates.prompt !== undefined ? updates.prompt : project.prompt,
+      sourceImageUrl: updates.sourceImageUrl !== undefined ? updates.sourceImageUrl : project.sourceImageUrl,
+      videoUrl: updates.videoUrl !== undefined ? updates.videoUrl : project.videoUrl,
+      thumbnailUrl: updates.thumbnailUrl !== undefined ? updates.thumbnailUrl : project.thumbnailUrl,
+      duration: updates.duration !== undefined ? updates.duration : project.duration,
+      resolution: updates.resolution !== undefined ? updates.resolution : project.resolution,
+      style: updates.style !== undefined ? updates.style : project.style,
+      effects: updates.effects !== undefined ? updates.effects : project.effects,
+      cameraControls: updates.cameraControls !== undefined ? updates.cameraControls : project.cameraControls,
+      metadata: updates.metadata !== undefined ? updates.metadata : project.metadata,
     };
     
     this.videoProjects.set(id, updated);

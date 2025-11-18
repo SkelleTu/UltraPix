@@ -13,6 +13,12 @@ interface VideoGenerationParams {
   style?: string;
 }
 
+interface ImageVideoGenerationParams {
+  duration?: number;
+  resolution?: string;
+  style?: string;
+}
+
 export async function generateVideoFromText(params: VideoGenerationParams) {
   try {
     // Check if OpenAI API key is available
@@ -83,7 +89,7 @@ export async function generateVideoFromText(params: VideoGenerationParams) {
   }
 }
 
-export async function generateVideoFromImage(imageUrl: string, prompt: string, params: VideoGenerationParams) {
+export async function generateVideoFromImage(imageUrl: string, prompt: string, params: ImageVideoGenerationParams) {
   try {
     // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY) {
