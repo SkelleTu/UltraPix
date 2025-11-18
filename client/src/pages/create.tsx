@@ -61,6 +61,9 @@ export default function Create() {
       cameraMovement: 'static',
       cameraSpeed: 'normal',
       prompt: '',
+      title: '',
+      sourceImageUrl: '',
+      style: undefined,
     },
   });
 

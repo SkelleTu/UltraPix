@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import { 
   Play, 
   Download, 
@@ -21,6 +22,11 @@ import type { VideoProject } from "@shared/schema";
 export default function Gallery() {
   const { data: videos, isLoading } = useQuery<VideoProject[]>({
     queryKey: ['/api/videos'],
+    refetchInterval: (query) => {
+      // Auto-refresh every 3 seconds if there are processing videos
+      const hasProcessing = query.state.data?.some((v: VideoProject) => v.status === 'processing');
+      return hasProcessing ? 3000 : false;
+    },
   });
 
   const getStatusBadge = (status: string) => {
@@ -228,6 +234,16 @@ export default function Gallery() {
                       </Badge>
                     )}
                   </div>
+
+                  {/* Processing Progress */}
+                  {video.status === 'processing' && (
+                    <div className="space-y-2">
+                      <Progress value={undefined} className="h-2 animate-pulse" />
+                      <p className="text-xs text-muted-foreground text-center animate-pulse">
+                        Gerando vídeo... Isso pode levar alguns minutos
+                      </p>
+                    </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t">
