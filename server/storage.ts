@@ -469,8 +469,19 @@ export class PgStorage implements IStorage {
 
   async getAllVideoProjects(): Promise<VideoProject[]> {
     await this.ensureInitialized();
-    const result = await db.select().from(videoProjects);
-    return result || [];
+    try {
+      const result = await db.select().from(videoProjects);
+      return result || [];
+    } catch (error: any) {
+      // Known bug in Neon HTTP driver: when table is empty, it returns null instead of []
+      // and processQueryResult tries to call .map() on null
+      if (error?.message?.includes("Cannot read properties of null (reading 'map')")) {
+        console.warn('Neon driver empty table bug detected, returning empty array');
+        return [];
+      }
+      // For any other database errors, propagate them so routes can return 500
+      throw error;
+    }
   }
 
   async createVideoProject(project: InsertVideoProject): Promise<VideoProject> {
@@ -503,16 +514,34 @@ export class PgStorage implements IStorage {
 
   async getAllTemplates(): Promise<Template[]> {
     await this.ensureInitialized();
-    return await db.select().from(templates).orderBy(desc(templates.popularityScore));
+    try {
+      const result = await db.select().from(templates).orderBy(desc(templates.popularityScore));
+      return result || [];
+    } catch (error: any) {
+      if (error?.message?.includes("Cannot read properties of null (reading 'map')")) {
+        console.warn('Neon driver empty result bug detected in getAllTemplates');
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getTemplatesByCategory(category: string): Promise<Template[]> {
     await this.ensureInitialized();
-    return await db
-      .select()
-      .from(templates)
-      .where(eq(templates.category, category))
-      .orderBy(desc(templates.popularityScore));
+    try {
+      const result = await db
+        .select()
+        .from(templates)
+        .where(eq(templates.category, category))
+        .orderBy(desc(templates.popularityScore));
+      return result || [];
+    } catch (error: any) {
+      if (error?.message?.includes("Cannot read properties of null (reading 'map')")) {
+        console.warn('Neon driver empty result bug detected in getTemplatesByCategory');
+        return [];
+      }
+      throw error;
+    }
   }
 
   async createTemplate(template: InsertTemplate): Promise<Template> {
@@ -529,25 +558,52 @@ export class PgStorage implements IStorage {
 
   async getAllEffects(): Promise<Effect[]> {
     await this.ensureInitialized();
-    return await db.select().from(effects).orderBy(desc(effects.usageCount));
+    try {
+      const result = await db.select().from(effects).orderBy(desc(effects.usageCount));
+      return result || [];
+    } catch (error: any) {
+      if (error?.message?.includes("Cannot read properties of null (reading 'map')")) {
+        console.warn('Neon driver empty result bug detected in getAllEffects');
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getEffectsByCategory(category: string): Promise<Effect[]> {
     await this.ensureInitialized();
-    return await db
-      .select()
-      .from(effects)
-      .where(eq(effects.category, category))
-      .orderBy(desc(effects.usageCount));
+    try {
+      const result = await db
+        .select()
+        .from(effects)
+        .where(eq(effects.category, category))
+        .orderBy(desc(effects.usageCount));
+      return result || [];
+    } catch (error: any) {
+      if (error?.message?.includes("Cannot read properties of null (reading 'map')")) {
+        console.warn('Neon driver empty result bug detected in getEffectsByCategory');
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getTrendingEffects(): Promise<Effect[]> {
     await this.ensureInitialized();
-    return await db
-      .select()
-      .from(effects)
-      .where(eq(effects.isTrending, 1))
-      .orderBy(desc(effects.usageCount));
+    try {
+      const result = await db
+        .select()
+        .from(effects)
+        .where(eq(effects.isTrending, 1))
+        .orderBy(desc(effects.usageCount));
+      return result || [];
+    } catch (error: any) {
+      if (error?.message?.includes("Cannot read properties of null (reading 'map')")) {
+        console.warn('Neon driver empty result bug detected in getTrendingEffects');
+        return [];
+      }
+      throw error;
+    }
   }
 
   async createEffect(effect: InsertEffect): Promise<Effect> {

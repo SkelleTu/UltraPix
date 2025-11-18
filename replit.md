@@ -8,6 +8,21 @@ VideoAI Pro is a comprehensive AI-powered video generation platform that enables
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 18, 2025)
+
+### Critical Database Migration
+- **Migrated from MemStorage to PgStorage**: Videos are now permanently stored in PostgreSQL database and will **never be lost** on server restart
+- **Lazy Initialization Pattern**: Database tables and sample data (templates, effects) are initialized on first API call
+- **Neon Driver Bug Workaround**: Implemented targeted error handling for empty table queries that return null instead of []
+- **OpenAI Integration**: Configured and ready for real AI video generation with user-provided API key
+- **WebSocket Progress System**: Real-time video generation progress updates working correctly
+
+### Technical Implementation
+- Created `server/db.ts` with Neon HTTP driver configuration
+- Implemented `PgStorage` class replacing `MemStorage` in `server/storage.ts`
+- Added error handling for all query methods that return arrays
+- Configured fetchOptions to disable caching for Neon HTTP queries
+
 ## System Architecture
 
 ### Frontend Architecture
@@ -47,10 +62,11 @@ Preferred communication style: Simple, everyday language.
 - `/api/templates` - Template library access
 - `/api/effects` - Effects catalog
 
-**Storage Layer**: Abstract storage interface (`IStorage`) with in-memory implementation (`MemStorage`). Designed for easy migration to persistent storage. The interface defines methods for:
-- Video project management (CRUD operations)
-- Template retrieval and categorization
-- Effects catalog with trending and category filtering
+**Storage Layer**: Abstract storage interface (`IStorage`) with PostgreSQL implementation (`PgStorage`). Ensures permanent data persistence with:
+- Video project management (CRUD operations with lazy initialization)
+- Template retrieval and categorization (auto-populated on first run)
+- Effects catalog with trending and category filtering (auto-populated on first run)
+- Workaround for Neon HTTP driver bug (null result handling for empty queries)
 
 **AI Integration**: OpenAI integration for video generation features:
 - Text-to-video generation using GPT-5 (newest model)
