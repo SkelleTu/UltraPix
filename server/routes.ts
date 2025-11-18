@@ -176,10 +176,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } catch (error) {
           console.error('Error during video generation:', error);
+          
+          // Update project status to failed
           await storage.updateVideoProject(project.id, {
             status: 'failed',
             metadata: { error: (error as Error).message },
           });
+          
+          // Send failed progress update
+          wsServer?.sendProgress({
+            videoId: project.id,
+            stage: 'failed',
+            progress: 0,
+            message: `Error: ${(error as Error).message}`
+          });
+          
+          // Send error notification
           wsServer?.sendError(project.id, (error as Error).message);
         }
       })();

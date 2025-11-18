@@ -12,6 +12,7 @@ import {
   SkipForward,
   Settings,
   Download,
+  PictureInPicture,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -73,12 +74,25 @@ export function VideoPlayer({ src, poster, className = "" }: VideoPlayerProps) {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFullscreen = 
+        !!document.fullscreenElement ||
+        !!(document as any).webkitFullscreenElement ||
+        !!(document as any).mozFullScreenElement ||
+        !!(document as any).msFullscreenElement;
+      setIsFullscreen(isFullscreen);
     };
 
+    // Add event listeners for all vendor prefixes
     document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+    
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
     };
   }, []);
 
@@ -118,14 +132,58 @@ export function VideoPlayer({ src, poster, className = "" }: VideoPlayerProps) {
     setIsMuted(!video.muted);
   };
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
     const container = containerRef.current;
     if (!container) return;
 
-    if (!document.fullscreenElement) {
-      container.requestFullscreen();
-    } else {
-      document.exitFullscreen();
+    try {
+      // Check for fullscreen with vendor prefixes
+      const isFullscreen = 
+        document.fullscreenElement || 
+        (document as any).webkitFullscreenElement || 
+        (document as any).mozFullScreenElement || 
+        (document as any).msFullscreenElement;
+
+      if (!isFullscreen) {
+        // Request fullscreen with vendor prefixes
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if ((container as any).webkitRequestFullscreen) {
+          await (container as any).webkitRequestFullscreen();
+        } else if ((container as any).mozRequestFullScreen) {
+          await (container as any).mozRequestFullScreen();
+        } else if ((container as any).msRequestFullscreen) {
+          await (container as any).msRequestFullscreen();
+        }
+      } else {
+        // Exit fullscreen with vendor prefixes
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        }
+      }
+    } catch (error) {
+      console.error('Fullscreen error:', error);
+    }
+  };
+
+  const togglePictureInPicture = async () => {
+    const video = videoRef.current;
+    if (!video || !document.pictureInPictureEnabled) return;
+
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await video.requestPictureInPicture();
+      }
+    } catch (error) {
+      console.error('PiP error:', error);
     }
   };
 
@@ -159,8 +217,9 @@ export function VideoPlayer({ src, poster, className = "" }: VideoPlayerProps) {
     <div
       ref={containerRef}
       className={`relative bg-black rounded-lg overflow-hidden ${className}`}
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
+      onMouseMove={() => setShowControls(true)}
+      onTouchStart={() => setShowControls(true)}
+      onClick={() => setShowControls(prev => !prev)}
     >
       <video
         ref={videoRef}
@@ -324,12 +383,26 @@ export function VideoPlayer({ src, poster, className = "" }: VideoPlayerProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Picture-in-Picture */}
+              {document.pictureInPictureEnabled && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={togglePictureInPicture}
+                  className="text-white hover:bg-white/20"
+                  data-testid="button-pip"
+                >
+                  <PictureInPicture className="w-5 h-5" />
+                </Button>
+              )}
+
               {/* Fullscreen */}
               <Button
                 size="icon"
                 variant="ghost"
                 onClick={toggleFullscreen}
                 className="text-white hover:bg-white/20"
+                data-testid="button-fullscreen"
               >
                 {isFullscreen ? (
                   <Minimize className="w-5 h-5" />
