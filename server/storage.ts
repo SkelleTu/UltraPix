@@ -334,12 +334,19 @@ export class PgStorage implements IStorage {
     if (this.initPromise) return this.initPromise;
     
     this.initPromise = this.initializeSampleData();
-    await this.initPromise;
-    this.initialized = true;
+    try {
+      await this.initPromise;
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to initialize sample data:', error);
+      this.initPromise = null;
+      throw error;
+    }
   }
 
   private async initializeSampleData() {
-    const existingTemplates = await db.select().from(templates);
+    try {
+      const existingTemplates = await db.select().from(templates);
     if (existingTemplates.length === 0) {
       const sampleTemplates: InsertTemplate[] = [
         {
@@ -448,6 +455,10 @@ export class PgStorage implements IStorage {
       ];
       await db.insert(effects).values(sampleEffects);
     }
+    } catch (error) {
+      console.error('Error in initializeSampleData:', error);
+      throw error;
+    }
   }
 
   async getVideoProject(id: string): Promise<VideoProject | undefined> {
@@ -458,7 +469,8 @@ export class PgStorage implements IStorage {
 
   async getAllVideoProjects(): Promise<VideoProject[]> {
     await this.ensureInitialized();
-    return await db.select().from(videoProjects);
+    const result = await db.select().from(videoProjects);
+    return result || [];
   }
 
   async createVideoProject(project: InsertVideoProject): Promise<VideoProject> {
