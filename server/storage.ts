@@ -4,9 +4,14 @@ import {
   type Template,
   type InsertTemplate,
   type Effect,
-  type InsertEffect
+  type InsertEffect,
+  videoProjects,
+  templates,
+  effects
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Video Projects
@@ -320,4 +325,202 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class PgStorage implements IStorage {
+  constructor() {
+    this.initializeSampleData();
+  }
+
+  private async initializeSampleData() {
+    const existingTemplates = await db.select().from(templates);
+    if (existingTemplates.length === 0) {
+      const sampleTemplates: InsertTemplate[] = [
+        {
+          name: "Social Media Viral",
+          description: "Template otimizado para redes sociais com efeitos virais",
+          category: "social",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          defaultPrompt: "Crie um vídeo dinâmico e envolvente para redes sociais",
+          defaultStyle: "cinematic",
+          defaultEffects: ["ai-hug"],
+          defaultCameraControls: { movement: "pan", speed: "normal" },
+          popularityScore: 95,
+        },
+        {
+          name: "Cinematic Trailer",
+          description: "Template cinematográfico para trailers profissionais",
+          category: "cinematic",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          defaultPrompt: "Crie um trailer cinematográfico épico",
+          defaultStyle: "cinematic",
+          defaultEffects: [],
+          defaultCameraControls: { movement: "orbit", speed: "slow" },
+          popularityScore: 88,
+        },
+        {
+          name: "Anime Style",
+          description: "Transforme suas ideias em estilo anime",
+          category: "animation",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          defaultPrompt: "Crie uma animação estilo anime",
+          defaultStyle: "anime",
+          defaultEffects: [],
+          defaultCameraControls: { movement: "static", speed: "normal" },
+          popularityScore: 75,
+        },
+      ];
+      await db.insert(templates).values(sampleTemplates);
+    }
+
+    const existingEffects = await db.select().from(effects);
+    if (existingEffects.length === 0) {
+      const sampleEffects: InsertEffect[] = [
+        {
+          name: "ai-hug",
+          displayName: "AI Hug",
+          description: "Crie abraços emocionantes entre pessoas",
+          category: "trending",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          isTrending: 1,
+          usageCount: 10000000,
+        },
+        {
+          name: "ai-kiss",
+          displayName: "AI Kiss",
+          description: "Gere momentos românticos realistas",
+          category: "trending",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          isTrending: 1,
+          usageCount: 8000000,
+        },
+        {
+          name: "venom-effect",
+          displayName: "Venom Effect",
+          description: "Transformação estilo Venom",
+          category: "transformation",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          isTrending: 1,
+          usageCount: 1000000000,
+        },
+        {
+          name: "super-hero",
+          displayName: "Super Hero",
+          description: "Torne-se um super-herói",
+          category: "transformation",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          isTrending: 1,
+          usageCount: 5000000,
+        },
+        {
+          name: "body-morph",
+          displayName: "Body Morph",
+          description: "Transformações corporais suaves",
+          category: "transformation",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          isTrending: 1,
+          usageCount: 7000000,
+        },
+        {
+          name: "squish-it",
+          displayName: "Squish It",
+          description: "Efeito de compressão divertido",
+          category: "social",
+          thumbnailUrl: null,
+          previewVideoUrl: null,
+          isTrending: 1,
+          usageCount: 3000000,
+        },
+      ];
+      await db.insert(effects).values(sampleEffects);
+    }
+  }
+
+  async getVideoProject(id: string): Promise<VideoProject | undefined> {
+    const result = await db.select().from(videoProjects).where(eq(videoProjects.id, id));
+    return result[0];
+  }
+
+  async getAllVideoProjects(): Promise<VideoProject[]> {
+    return await db.select().from(videoProjects);
+  }
+
+  async createVideoProject(project: InsertVideoProject): Promise<VideoProject> {
+    const result = await db.insert(videoProjects).values(project).returning();
+    return result[0];
+  }
+
+  async updateVideoProject(id: string, updates: Partial<VideoProject>): Promise<VideoProject | undefined> {
+    const result = await db
+      .update(videoProjects)
+      .set(updates)
+      .where(eq(videoProjects.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteVideoProject(id: string): Promise<boolean> {
+    const result = await db.delete(videoProjects).where(eq(videoProjects.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getTemplate(id: string): Promise<Template | undefined> {
+    const result = await db.select().from(templates).where(eq(templates.id, id));
+    return result[0];
+  }
+
+  async getAllTemplates(): Promise<Template[]> {
+    return await db.select().from(templates).orderBy(desc(templates.popularityScore));
+  }
+
+  async getTemplatesByCategory(category: string): Promise<Template[]> {
+    return await db
+      .select()
+      .from(templates)
+      .where(eq(templates.category, category))
+      .orderBy(desc(templates.popularityScore));
+  }
+
+  async createTemplate(template: InsertTemplate): Promise<Template> {
+    const result = await db.insert(templates).values(template).returning();
+    return result[0];
+  }
+
+  async getEffect(id: string): Promise<Effect | undefined> {
+    const result = await db.select().from(effects).where(eq(effects.id, id));
+    return result[0];
+  }
+
+  async getAllEffects(): Promise<Effect[]> {
+    return await db.select().from(effects).orderBy(desc(effects.usageCount));
+  }
+
+  async getEffectsByCategory(category: string): Promise<Effect[]> {
+    return await db
+      .select()
+      .from(effects)
+      .where(eq(effects.category, category))
+      .orderBy(desc(effects.usageCount));
+  }
+
+  async getTrendingEffects(): Promise<Effect[]> {
+    return await db
+      .select()
+      .from(effects)
+      .where(eq(effects.isTrending, 1))
+      .orderBy(desc(effects.usageCount));
+  }
+
+  async createEffect(effect: InsertEffect): Promise<Effect> {
+    const result = await db.insert(effects).values(effect).returning();
+    return result[0];
+  }
+}
+
+export const storage = new PgStorage();
