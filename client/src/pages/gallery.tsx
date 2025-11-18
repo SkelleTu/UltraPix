@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { VideoPreviewDialog } from "@/components/video-preview-dialog";
 import { GenerationProgress } from "@/components/generation-progress";
+import { useVideoProgress } from "@/hooks/use-video-progress";
 import { 
   Play, 
   Download, 
@@ -18,21 +19,21 @@ import {
   Search,
   Filter,
   Sparkles,
-  Eye
+  Eye,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import type { VideoProject } from "@shared/schema";
 
 export default function Gallery() {
   const [selectedVideo, setSelectedVideo] = useState<VideoProject | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  
+  // Use WebSocket hook for real-time progress updates
+  const { getProgress, isConnected } = useVideoProgress();
 
   const { data: videos, isLoading } = useQuery<VideoProject[]>({
     queryKey: ['/api/videos'],
-    refetchInterval: (query) => {
-      // Auto-refresh every 3 seconds if there are processing videos
-      const hasProcessing = query.state.data?.some((v: VideoProject) => v.status === 'processing');
-      return hasProcessing ? 3000 : false;
-    },
   });
 
   const handleVideoClick = (video: VideoProject) => {
@@ -307,32 +308,50 @@ export default function Gallery() {
         {/* Processing Videos Section */}
         {!isLoading && videos && videos.some(v => v.status === 'processing') && (
           <div className="mt-12">
-            <h2 className="font-serif text-2xl font-bold mb-6">
-              Vídeos em Processamento
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-serif text-2xl font-bold">
+                Vídeos em Processamento
+              </h2>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {isConnected ? (
+                  <>
+                    <Wifi className="w-4 h-4 text-green-500" />
+                    <span>Conectado</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4 text-red-500" />
+                    <span>Desconectado</span>
+                  </>
+                )}
+              </div>
+            </div>
             <div className="grid md:grid-cols-2 gap-6">
               {videos
                 .filter(v => v.status === 'processing')
-                .map(video => (
-                  <Card key={`processing-${video.id}`}>
-                    <CardContent className="p-6">
-                      <div className="mb-4">
-                        <h3 className="font-semibold mb-1">
-                          {video.title || 'Sem título'}
-                        </h3>
-                        {video.description && (
-                          <p className="text-sm text-muted-foreground">
-                            {video.description}
-                          </p>
-                        )}
-                      </div>
-                      <GenerationProgress 
-                        currentStage="generating" 
-                        overallProgress={45}
-                      />
-                    </CardContent>
-                  </Card>
-                ))
+                .map(video => {
+                  const progress = getProgress(video.id);
+                  return (
+                    <Card key={`processing-${video.id}`}>
+                      <CardContent className="p-6">
+                        <div className="mb-4">
+                          <h3 className="font-semibold mb-1">
+                            {video.title || 'Sem título'}
+                          </h3>
+                          {video.description && (
+                            <p className="text-sm text-muted-foreground">
+                              {video.description}
+                            </p>
+                          )}
+                        </div>
+                        <GenerationProgress 
+                          currentStage={progress?.stage || "enhancing"} 
+                          overallProgress={progress?.progress || 0}
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                })
               }
             </div>
           </div>

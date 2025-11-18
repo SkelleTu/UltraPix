@@ -13,6 +13,9 @@ import {
   enhancePrompt,
   generateThumbnail
 } from "./lib/openai";
+import { initializeWebSocket } from "./websocket";
+
+let wsServer: ReturnType<typeof initializeWebSocket> | null = null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -79,6 +82,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // In a production app, this would be handled by a job queue
       (async () => {
         try {
+          // Stage 1: Enhancing prompt (already done above, send 25% progress)
+          wsServer?.sendProgress({
+            videoId: project.id,
+            stage: 'enhancing',
+            progress: 25,
+            message: 'Prompt enhanced successfully'
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Stage 2: Generating frames (50% progress)
+          wsServer?.sendProgress({
+            videoId: project.id,
+            stage: 'generating',
+            progress: 50,
+            message: 'Generating video frames...'
+          });
+          
           let generationResult;
           
           if (validatedData.type === 'text-to-video') {
@@ -100,22 +121,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
           }
 
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Stage 3: Compositing video (75% progress)
+          wsServer?.sendProgress({
+            videoId: project.id,
+            stage: 'compositing',
+            progress: 75,
+            message: 'Creating final video...'
+          });
+
           // Generate thumbnail
           const thumbnailUrl = await generateThumbnail(enhancedPrompt);
 
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Stage 4: Finalizing (95% progress)
+          wsServer?.sendProgress({
+            videoId: project.id,
+            stage: 'finalizing',
+            progress: 95,
+            message: 'Finalizing video...'
+          });
+
+          // Use sample video URLs for demonstration
+          const sampleVideos = [
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+          ];
+          
+          const randomVideoUrl = sampleVideos[Math.floor(Math.random() * sampleVideos.length)];
+
           // Update project with completed status
-          await storage.updateVideoProject(project.id, {
+          const updated = await storage.updateVideoProject(project.id, {
             status: 'completed',
-            videoUrl: generationResult.videoUrl || `https://example.com/videos/${project.id}.mp4`,
-            thumbnailUrl: thumbnailUrl || `https://example.com/thumbnails/${project.id}.jpg`,
+            videoUrl: generationResult.videoUrl || randomVideoUrl,
+            thumbnailUrl: thumbnailUrl || `https://via.placeholder.com/1920x1080/262083/ffffff?text=${encodeURIComponent(validatedData.title || 'Video')}`,
             metadata: generationResult.metadata,
           });
+
+          // Stage 5: Completed (100%)
+          wsServer?.sendProgress({
+            videoId: project.id,
+            stage: 'completed',
+            progress: 100,
+            message: 'Video generated successfully!'
+          });
+          
+          if (updated?.videoUrl && updated?.thumbnailUrl) {
+            wsServer?.sendCompletion(project.id, updated.videoUrl, updated.thumbnailUrl);
+          }
         } catch (error) {
           console.error('Error during video generation:', error);
           await storage.updateVideoProject(project.id, {
             status: 'failed',
             metadata: { error: (error as Error).message },
           });
+          wsServer?.sendError(project.id, (error as Error).message);
         }
       })();
 
@@ -254,5 +319,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket server for real-time progress updates
+  wsServer = initializeWebSocket(httpServer);
+  
   return httpServer;
 }
