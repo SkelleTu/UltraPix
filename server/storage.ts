@@ -326,8 +326,16 @@ export class MemStorage implements IStorage {
 }
 
 export class PgStorage implements IStorage {
-  constructor() {
-    this.initializeSampleData();
+  private initialized = false;
+  private initPromise: Promise<void> | null = null;
+
+  private async ensureInitialized() {
+    if (this.initialized) return;
+    if (this.initPromise) return this.initPromise;
+    
+    this.initPromise = this.initializeSampleData();
+    await this.initPromise;
+    this.initialized = true;
   }
 
   private async initializeSampleData() {
@@ -443,20 +451,24 @@ export class PgStorage implements IStorage {
   }
 
   async getVideoProject(id: string): Promise<VideoProject | undefined> {
+    await this.ensureInitialized();
     const result = await db.select().from(videoProjects).where(eq(videoProjects.id, id));
     return result[0];
   }
 
   async getAllVideoProjects(): Promise<VideoProject[]> {
+    await this.ensureInitialized();
     return await db.select().from(videoProjects);
   }
 
   async createVideoProject(project: InsertVideoProject): Promise<VideoProject> {
+    await this.ensureInitialized();
     const result = await db.insert(videoProjects).values(project).returning();
     return result[0];
   }
 
   async updateVideoProject(id: string, updates: Partial<VideoProject>): Promise<VideoProject | undefined> {
+    await this.ensureInitialized();
     const result = await db
       .update(videoProjects)
       .set(updates)
@@ -466,20 +478,24 @@ export class PgStorage implements IStorage {
   }
 
   async deleteVideoProject(id: string): Promise<boolean> {
+    await this.ensureInitialized();
     const result = await db.delete(videoProjects).where(eq(videoProjects.id, id)).returning();
     return result.length > 0;
   }
 
   async getTemplate(id: string): Promise<Template | undefined> {
+    await this.ensureInitialized();
     const result = await db.select().from(templates).where(eq(templates.id, id));
     return result[0];
   }
 
   async getAllTemplates(): Promise<Template[]> {
+    await this.ensureInitialized();
     return await db.select().from(templates).orderBy(desc(templates.popularityScore));
   }
 
   async getTemplatesByCategory(category: string): Promise<Template[]> {
+    await this.ensureInitialized();
     return await db
       .select()
       .from(templates)
@@ -488,20 +504,24 @@ export class PgStorage implements IStorage {
   }
 
   async createTemplate(template: InsertTemplate): Promise<Template> {
+    await this.ensureInitialized();
     const result = await db.insert(templates).values(template).returning();
     return result[0];
   }
 
   async getEffect(id: string): Promise<Effect | undefined> {
+    await this.ensureInitialized();
     const result = await db.select().from(effects).where(eq(effects.id, id));
     return result[0];
   }
 
   async getAllEffects(): Promise<Effect[]> {
+    await this.ensureInitialized();
     return await db.select().from(effects).orderBy(desc(effects.usageCount));
   }
 
   async getEffectsByCategory(category: string): Promise<Effect[]> {
+    await this.ensureInitialized();
     return await db
       .select()
       .from(effects)
@@ -510,6 +530,7 @@ export class PgStorage implements IStorage {
   }
 
   async getTrendingEffects(): Promise<Effect[]> {
+    await this.ensureInitialized();
     return await db
       .select()
       .from(effects)
@@ -518,6 +539,7 @@ export class PgStorage implements IStorage {
   }
 
   async createEffect(effect: InsertEffect): Promise<Effect> {
+    await this.ensureInitialized();
     const result = await db.insert(effects).values(effect).returning();
     return result[0];
   }
