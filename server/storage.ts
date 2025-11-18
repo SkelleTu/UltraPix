@@ -86,8 +86,17 @@ export class MemStorage implements IStorage {
     sampleTemplates.forEach(template => {
       const id = randomUUID();
       this.templates.set(id, { 
-        ...template, 
-        id
+        id,
+        name: template.name,
+        description: template.description ?? null,
+        category: template.category,
+        thumbnailUrl: template.thumbnailUrl ?? null,
+        previewVideoUrl: template.previewVideoUrl ?? null,
+        defaultPrompt: template.defaultPrompt ?? null,
+        defaultStyle: template.defaultStyle ?? null,
+        defaultEffects: template.defaultEffects ?? [],
+        defaultCameraControls: template.defaultCameraControls ?? null,
+        popularityScore: template.popularityScore ?? 0,
       });
     });
 
@@ -158,8 +167,15 @@ export class MemStorage implements IStorage {
     sampleEffects.forEach(effect => {
       const id = randomUUID();
       this.effects.set(id, { 
-        ...effect, 
-        id
+        id,
+        name: effect.name,
+        displayName: effect.displayName,
+        description: effect.description ?? null,
+        category: effect.category,
+        thumbnailUrl: effect.thumbnailUrl ?? null,
+        previewVideoUrl: effect.previewVideoUrl ?? null,
+        isTrending: effect.isTrending ?? 0,
+        usageCount: effect.usageCount ?? 0,
       });
     });
   }
@@ -176,8 +192,21 @@ export class MemStorage implements IStorage {
   async createVideoProject(insertProject: InsertVideoProject): Promise<VideoProject> {
     const id = randomUUID();
     const project: VideoProject = { 
-      ...insertProject, 
-      id
+      id,
+      title: insertProject.title,
+      description: insertProject.description ?? null,
+      type: insertProject.type,
+      status: insertProject.status ?? 'draft',
+      prompt: insertProject.prompt ?? null,
+      sourceImageUrl: insertProject.sourceImageUrl ?? null,
+      videoUrl: insertProject.videoUrl ?? null,
+      thumbnailUrl: insertProject.thumbnailUrl ?? null,
+      duration: insertProject.duration ?? null,
+      resolution: insertProject.resolution ?? '1080p',
+      style: insertProject.style ?? null,
+      effects: insertProject.effects ?? [],
+      cameraControls: insertProject.cameraControls ?? null,
+      metadata: insertProject.metadata ?? null,
     };
     this.videoProjects.set(id, project);
     return project;
@@ -221,8 +250,17 @@ export class MemStorage implements IStorage {
   async createTemplate(insertTemplate: InsertTemplate): Promise<Template> {
     const id = randomUUID();
     const template: Template = { 
-      ...insertTemplate, 
-      id
+      id,
+      name: insertTemplate.name,
+      description: insertTemplate.description ?? null,
+      category: insertTemplate.category,
+      thumbnailUrl: insertTemplate.thumbnailUrl ?? null,
+      previewVideoUrl: insertTemplate.previewVideoUrl ?? null,
+      defaultPrompt: insertTemplate.defaultPrompt ?? null,
+      defaultStyle: insertTemplate.defaultStyle ?? null,
+      defaultEffects: insertTemplate.defaultEffects ?? [],
+      defaultCameraControls: insertTemplate.defaultCameraControls ?? null,
+      popularityScore: insertTemplate.popularityScore ?? 0,
     };
     this.templates.set(id, template);
     return template;
@@ -254,8 +292,15 @@ export class MemStorage implements IStorage {
   async createEffect(insertEffect: InsertEffect): Promise<Effect> {
     const id = randomUUID();
     const effect: Effect = { 
-      ...insertEffect, 
-      id
+      id,
+      name: insertEffect.name,
+      displayName: insertEffect.displayName,
+      description: insertEffect.description ?? null,
+      category: insertEffect.category,
+      thumbnailUrl: insertEffect.thumbnailUrl ?? null,
+      previewVideoUrl: insertEffect.previewVideoUrl ?? null,
+      isTrending: insertEffect.isTrending ?? 0,
+      usageCount: insertEffect.usageCount ?? 0,
     };
     this.effects.set(id, effect);
     return effect;

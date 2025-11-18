@@ -93,6 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               validatedData.sourceImageUrl || '',
               enhancedPrompt,
               {
+                prompt: enhancedPrompt,
                 duration: validatedData.duration,
                 resolution: validatedData.resolution,
                 style: validatedData.style,

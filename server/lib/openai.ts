@@ -199,7 +199,7 @@ export async function generateThumbnail(prompt: string): Promise<string | null> 
       quality: "standard",
     });
 
-    return response.data[0].url || null;
+    return response.data?.[0]?.url || null;
   } catch (error) {
     console.error('Error generating thumbnail:', error);
     return null;
