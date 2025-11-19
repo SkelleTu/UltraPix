@@ -20,14 +20,20 @@ interface GenerationStage {
 }
 
 interface GenerationProgressProps {
-  currentStage?: string;
-  overallProgress?: number;
+  projectId: string;
+  title: string;
+  status: "processing" | "failed";
+  progress: number;
 }
 
 export function GenerationProgress({
-  currentStage = "enhancing",
-  overallProgress = 0,
+  projectId,
+  title,
+  status,
+  progress,
 }: GenerationProgressProps) {
+  const currentStage = progress < 25 ? "enhancing" : progress < 50 ? "generating" : progress < 75 ? "compositing" : "finalizing";
+  const overallProgress = progress;
   const stages: GenerationStage[] = [
     {
       id: "enhancing",
@@ -66,10 +72,10 @@ export function GenerationProgress({
       status:
         currentStage === "finalizing"
           ? "processing"
-          : currentStage === "completed"
+          : overallProgress >= 95
           ? "completed"
           : "pending",
-      progress: currentStage === "finalizing" ? overallProgress : currentStage === "completed" ? 100 : 0,
+      progress: currentStage === "finalizing" ? overallProgress : overallProgress >= 95 ? 100 : 0,
       icon: Download,
     },
   ];
