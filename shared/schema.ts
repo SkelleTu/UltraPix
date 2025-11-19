@@ -3,9 +3,27 @@ import { pgTable, text, varchar, timestamp, integer, jsonb } from "drizzle-orm/p
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Users
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
 // Video Projects
 export const videoProjects = pgTable("video_projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
   title: text("title").notNull(),
   description: text("description"),
   type: text("type").notNull(), // 'text-to-video', 'image-to-video', 'template'
@@ -20,14 +38,31 @@ export const videoProjects = pgTable("video_projects", {
   effects: jsonb("effects").default([]), // array of effect names applied
   cameraControls: jsonb("camera_controls"), // zoom, pan, tilt settings
   metadata: jsonb("metadata"), // additional processing metadata
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const insertVideoProjectSchema = createInsertSchema(videoProjects).omit({
   id: true,
+  createdAt: true,
 });
 
 export type InsertVideoProject = z.infer<typeof insertVideoProjectSchema>;
 export type VideoProject = typeof videoProjects.$inferSelect;
+
+// Auth Schemas
+export const registerSchema = z.object({
+  username: z.string().min(3).max(50),
+  email: z.string().email(),
+  password: z.string().min(8).max(100),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+export type RegisterRequest = z.infer<typeof registerSchema>;
+export type LoginRequest = z.infer<typeof loginSchema>;
 
 // Templates
 export const templates = pgTable("templates", {

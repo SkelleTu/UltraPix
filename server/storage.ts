@@ -5,18 +5,28 @@ import {
   type InsertTemplate,
   type Effect,
   type InsertEffect,
+  type User,
+  type InsertUser,
   videoProjects,
   templates,
-  effects
+  effects,
+  users
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
+  // Users
+  getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
   // Video Projects
   getVideoProject(id: string): Promise<VideoProject | undefined>;
   getAllVideoProjects(): Promise<VideoProject[]>;
+  getVideoProjectsByUserId(userId: string): Promise<VideoProject[]>;
   createVideoProject(project: InsertVideoProject): Promise<VideoProject>;
   updateVideoProject(id: string, project: Partial<VideoProject>): Promise<VideoProject | undefined>;
   deleteVideoProject(id: string): Promise<boolean>;
@@ -39,12 +49,38 @@ export class MemStorage implements IStorage {
   private videoProjects: Map<string, VideoProject>;
   private templates: Map<string, Template>;
   private effects: Map<string, Effect>;
+  private users: Map<string, User>;
 
   constructor() {
     this.videoProjects = new Map();
     this.templates = new Map();
     this.effects = new Map();
+    this.users = new Map();
     this.initializeSampleData();
+  }
+
+  // User methods
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.email === email);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.username === username);
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const id = randomUUID();
+    const newUser: User = {
+      id,
+      ...user,
+      createdAt: new Date(),
+    };
+    this.users.set(id, newUser);
+    return newUser;
   }
 
   private initializeSampleData() {
@@ -194,10 +230,15 @@ export class MemStorage implements IStorage {
     return Array.from(this.videoProjects.values());
   }
 
+  async getVideoProjectsByUserId(userId: string): Promise<VideoProject[]> {
+    return Array.from(this.videoProjects.values()).filter(p => p.userId === userId);
+  }
+
   async createVideoProject(insertProject: InsertVideoProject): Promise<VideoProject> {
     const id = randomUUID();
     const project: VideoProject = { 
       id,
+      userId: insertProject.userId,
       title: insertProject.title,
       description: insertProject.description ?? null,
       type: insertProject.type,
@@ -212,6 +253,7 @@ export class MemStorage implements IStorage {
       effects: insertProject.effects ?? [],
       cameraControls: insertProject.cameraControls ?? null,
       metadata: insertProject.metadata ?? null,
+      createdAt: new Date(),
     };
     this.videoProjects.set(id, project);
     return project;
@@ -224,6 +266,7 @@ export class MemStorage implements IStorage {
     // Create immutable copy with safe merge, ensuring required fields remain populated
     const updated: VideoProject = {
       id: project.id, // Ensure ID doesn't change
+      userId: project.userId, // Ensure userId doesn't change
       title: updates.title !== undefined ? updates.title : project.title,
       description: updates.description !== undefined ? updates.description : project.description,
       type: updates.type !== undefined ? updates.type : project.type,
@@ -238,6 +281,7 @@ export class MemStorage implements IStorage {
       effects: updates.effects !== undefined ? updates.effects : project.effects,
       cameraControls: updates.cameraControls !== undefined ? updates.cameraControls : project.cameraControls,
       metadata: updates.metadata !== undefined ? updates.metadata : project.metadata,
+      createdAt: project.createdAt, // Ensure createdAt doesn't change
     };
     
     this.videoProjects.set(id, updated);
@@ -461,6 +505,28 @@ export class PgStorage implements IStorage {
     }
   }
 
+  // User methods
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email));
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.username, username));
+    return result[0];
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const result = await db.insert(users).values(user).returning();
+    return result[0];
+  }
+
+  // Video Projects
   async getVideoProject(id: string): Promise<VideoProject | undefined> {
     await this.ensureInitialized();
     const result = await db.select().from(videoProjects).where(eq(videoProjects.id, id));
@@ -480,6 +546,20 @@ export class PgStorage implements IStorage {
         return [];
       }
       // For any other database errors, propagate them so routes can return 500
+      throw error;
+    }
+  }
+
+  async getVideoProjectsByUserId(userId: string): Promise<VideoProject[]> {
+    await this.ensureInitialized();
+    try {
+      const result = await db.select().from(videoProjects).where(eq(videoProjects.userId, userId)).orderBy(desc(videoProjects.createdAt));
+      return result || [];
+    } catch (error: any) {
+      if (error?.message?.includes("Cannot read properties of null (reading 'map')")) {
+        console.warn('Neon driver empty result bug detected in getVideoProjectsByUserId');
+        return [];
+      }
       throw error;
     }
   }

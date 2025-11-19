@@ -137,10 +137,24 @@ export function useVideoProgress() {
     });
   };
 
+  // Get the most recent progress (for display in UI)
+  const currentProgress = Array.from(progressMap.values()).find(
+    (p) => p.stage !== "completed" && p.stage !== "failed"
+  );
+
+  // Convert to format expected by GenerationProgress component
+  const formattedProgress = currentProgress ? {
+    projectId: currentProgress.videoId,
+    title: "Gerando vídeo",
+    status: currentProgress.stage === "failed" ? "failed" as const : "processing" as const,
+    progress: currentProgress.progress,
+  } : null;
+
   return {
     getProgress,
     clearProgress,
     progressMap,
     isConnected,
+    currentProgress: formattedProgress,
   };
 }

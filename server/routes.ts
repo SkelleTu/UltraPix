@@ -14,19 +14,80 @@ import {
   generateThumbnail
 } from "./lib/openai";
 import { initializeWebSocket } from "./websocket";
+import { isAuthenticated, registerUser } from "./auth";
+import passport from "passport";
 
 let wsServer: ReturnType<typeof initializeWebSocket> | null = null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // ============================================
-  // VIDEO PROJECTS ROUTES
+  // AUTHENTICATION ROUTES
   // ============================================
   
-  // Get all video projects
-  app.get("/api/videos", async (req, res) => {
+  // Register new user
+  app.post("/api/auth/register", async (req, res) => {
     try {
-      const videos = await storage.getAllVideoProjects();
+      const user = await registerUser(req.body);
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Registration successful but login failed" });
+        }
+        res.json(user);
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Login user
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: Express.User | false, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Login failed" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Login failed" });
+        }
+        res.json(user);
+      });
+    })(req, res, next);
+  });
+
+  // Logout user
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      // Destroy the session to invalidate cookies
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error("Session destruction error:", destroyErr);
+        }
+        res.json({ message: "Logged out successfully" });
+      });
+    });
+  });
+
+  // Get current user
+  app.get("/api/auth/me", isAuthenticated, async (req, res) => {
+    res.json(req.user);
+  });
+  
+  // ============================================
+  // VIDEO PROJECTS ROUTES (Protected)
+  // ============================================
+  
+  // Get all video projects for current user
+  app.get("/api/videos", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const videos = await storage.getVideoProjectsByUserId(userId);
       res.json(videos);
     } catch (error) {
       console.error("Error fetching videos:", error);
@@ -34,13 +95,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get single video project
-  app.get("/api/videos/:id", async (req, res) => {
+  // Get single video project (Protected - ownership check)
+  app.get("/api/videos/:id", isAuthenticated, async (req, res) => {
     try {
+      const userId = req.user!.id;
       const video = await storage.getVideoProject(req.params.id);
+      
       if (!video) {
         return res.status(404).json({ error: "Video not found" });
       }
+      
+      // Verify ownership
+      if (video.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden - You don't own this video" });
+      }
+      
       res.json(video);
     } catch (error) {
       console.error("Error fetching video:", error);
@@ -48,9 +117,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate new video
-  app.post("/api/videos/generate", async (req, res) => {
+  // Generate new video (Protected)
+  app.post("/api/videos/generate", isAuthenticated, async (req, res) => {
     try {
+      const userId = req.user!.id;
+      
       // Validate request body
       const validatedData = videoGenerationRequestSchema.parse(req.body);
       
@@ -62,6 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create initial project record with processing status
       const project = await storage.createVideoProject({
+        userId,
         title: validatedData.title || `Video ${new Date().toLocaleDateString()}`,
         description: validatedData.description || validatedData.prompt,
         type: validatedData.type,
@@ -210,13 +282,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update video project
-  app.patch("/api/videos/:id", async (req, res) => {
+  // Update video project (Protected - ownership check)
+  app.patch("/api/videos/:id", isAuthenticated, async (req, res) => {
     try {
-      const updated = await storage.updateVideoProject(req.params.id, req.body);
-      if (!updated) {
+      const userId = req.user!.id;
+      
+      // First verify the video exists and user owns it
+      const video = await storage.getVideoProject(req.params.id);
+      if (!video) {
         return res.status(404).json({ error: "Video not found" });
       }
+      
+      if (video.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden - You don't own this video" });
+      }
+      
+      // Update the video
+      const updated = await storage.updateVideoProject(req.params.id, req.body);
       res.json(updated);
     } catch (error) {
       console.error("Error updating video:", error);
@@ -224,13 +306,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete video project
-  app.delete("/api/videos/:id", async (req, res) => {
+  // Delete video project (Protected - ownership check)
+  app.delete("/api/videos/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteVideoProject(req.params.id);
-      if (!deleted) {
+      const userId = req.user!.id;
+      
+      // First verify the video exists and user owns it
+      const video = await storage.getVideoProject(req.params.id);
+      if (!video) {
         return res.status(404).json({ error: "Video not found" });
       }
+      
+      if (video.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden - You don't own this video" });
+      }
+      
+      // Delete the video
+      const deleted = await storage.deleteVideoProject(req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting video:", error);

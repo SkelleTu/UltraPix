@@ -1,8 +1,72 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+import connectPg from "connect-pg-simple";
+import { loginUser } from "./auth";
 
 const app = express();
+
+// Configure session store
+const PgSession = connectPg(session);
+const sessionStore = new PgSession({
+  conString: process.env.DATABASE_URL,
+  createTableIfMissing: true,
+  tableName: "sessions",
+});
+
+// Session configuration
+app.set("trust proxy", 1);
+app.use(
+  session({
+    store: sessionStore,
+    secret: process.env.SESSION_SECRET || "dev-secret-key-change-in-production",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+    },
+  })
+);
+
+// Passport configuration
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.use(
+  new LocalStrategy(
+    { usernameField: "email" },
+    async (email, password, done) => {
+      try {
+        const user = await loginUser({ email, password });
+        return done(null, user);
+      } catch (error: any) {
+        return done(null, false, { message: error.message });
+      }
+    }
+  )
+);
+
+passport.serializeUser((user: Express.User, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id: string, done) => {
+  try {
+    const { storage } = await import("./storage");
+    const user = await storage.getUser(id);
+    if (!user) {
+      return done(null, false);
+    }
+    done(null, { id: user.id, username: user.username, email: user.email });
+  } catch (error) {
+    done(error, null);
+  }
+});
 
 declare module 'http' {
   interface IncomingMessage {

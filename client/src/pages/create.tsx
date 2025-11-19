@@ -37,6 +37,8 @@ import {
 } from "lucide-react";
 
 import { videoGenerationRequestSchema, type VideoGenerationRequest } from "@shared/schema";
+import { GenerationProgress } from "@/components/generation-progress";
+import { useVideoProgress } from "@/hooks/use-video-progress";
 
 // Extend the shared schema with UI-only fields for camera controls
 const createVideoFormSchema = videoGenerationRequestSchema.extend({
@@ -50,6 +52,7 @@ export default function Create() {
   const [activeTab, setActiveTab] = useState<'text-to-video' | 'image-to-video'>('text-to-video');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { currentProgress } = useVideoProgress();
 
   const form = useForm<CreateVideoForm>({
     resolver: zodResolver(createVideoFormSchema),
@@ -129,6 +132,18 @@ export default function Create() {
             Transforme suas ideias em vídeos profissionais com IA de última geração
           </p>
         </div>
+
+        {/* Generation Progress */}
+        {currentProgress && (
+          <div className="mb-6">
+            <GenerationProgress
+              projectId={currentProgress.projectId}
+              title={currentProgress.title}
+              status={currentProgress.status}
+              progress={currentProgress.progress}
+            />
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Creation Area */}
