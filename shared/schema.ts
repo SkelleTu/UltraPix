@@ -1,15 +1,16 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { nanoid } from "nanoid";
 
 // Users
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -21,9 +22,9 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 // Video Projects
-export const videoProjects = pgTable("video_projects", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
+export const videoProjects = sqliteTable("video_projects", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  userId: text("user_id").notNull().references(() => users.id),
   title: text("title").notNull(),
   description: text("description"),
   type: text("type").notNull(), // 'text-to-video', 'image-to-video', 'template'
@@ -35,10 +36,14 @@ export const videoProjects = pgTable("video_projects", {
   duration: integer("duration"), // in seconds
   resolution: text("resolution").default('1080p'), // '720p', '1080p', '4K'
   style: text("style"), // 'cinematic', 'anime', 'realistic', 'artistic'
-  effects: jsonb("effects").default([]), // array of effect names applied
-  cameraControls: jsonb("camera_controls"), // zoom, pan, tilt settings
-  metadata: jsonb("metadata"), // additional processing metadata
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  effects: text("effects", { mode: 'json' }).$type<string[]>().default(sql`'[]'`), // JSON array of effect names
+  cameraControls: text("camera_controls", { mode: 'json' }).$type<{
+    movement?: string;
+    speed?: string;
+    angle?: string;
+  }>(), // JSON object for camera settings
+  metadata: text("metadata", { mode: 'json' }).$type<Record<string, any>>(), // JSON object for additional metadata
+  createdAt: integer("created_at", { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });
 
 export const insertVideoProjectSchema = createInsertSchema(videoProjects).omit({
@@ -65,8 +70,8 @@ export type RegisterRequest = z.infer<typeof registerSchema>;
 export type LoginRequest = z.infer<typeof loginSchema>;
 
 // Templates
-export const templates = pgTable("templates", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const templates = sqliteTable("templates", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
   name: text("name").notNull(),
   description: text("description"),
   category: text("category").notNull(), // 'social', 'marketing', 'cinematic', 'animation'
@@ -74,8 +79,8 @@ export const templates = pgTable("templates", {
   previewVideoUrl: text("preview_video_url"),
   defaultPrompt: text("default_prompt"),
   defaultStyle: text("default_style"),
-  defaultEffects: jsonb("default_effects").default([]),
-  defaultCameraControls: jsonb("default_camera_controls"),
+  defaultEffects: text("default_effects", { mode: 'json' }).$type<string[]>().default(sql`'[]'`),
+  defaultCameraControls: text("default_camera_controls", { mode: 'json' }).$type<Record<string, any>>(),
   popularityScore: integer("popularity_score").default(0),
 });
 
@@ -87,8 +92,8 @@ export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
 export type Template = typeof templates.$inferSelect;
 
 // Effects Library
-export const effects = pgTable("effects", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const effects = sqliteTable("effects", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
   name: text("name").notNull(),
   displayName: text("display_name").notNull(),
   description: text("description"),

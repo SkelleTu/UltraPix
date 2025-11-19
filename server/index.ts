@@ -4,17 +4,20 @@ import { setupVite, serveStatic, log } from "./vite";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import connectPg from "connect-pg-simple";
+import SqliteStore from "better-sqlite3-session-store";
 import { loginUser } from "./auth";
+import { sqliteDb } from "./db";
 
 const app = express();
 
-// Configure session store
-const PgSession = connectPg(session);
-const sessionStore = new PgSession({
-  conString: process.env.DATABASE_URL,
-  createTableIfMissing: true,
-  tableName: "sessions",
+// Configure session store with SQLite
+const SessionStore = SqliteStore(session);
+const sessionStore = new SessionStore({
+  client: sqliteDb,
+  expired: {
+    clear: true,
+    intervalMs: 900000 // 15 minutes
+  }
 });
 
 // Session configuration
